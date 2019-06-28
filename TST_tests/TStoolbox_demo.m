@@ -1,5 +1,5 @@
 %% let's make some continuous "data", simulating the firing rate of 
-duration = 5;
+duration = 50;
 
 Fs = 30000; % 30 kHz (sampling rate for open-ephys) 
 EEG0_times = (1:(Fs*duration))'; % five seconds of simulated EEG, in units of the sampling rate. Must be a column vector
@@ -30,14 +30,15 @@ hold on
 
 % let's have a mouse running on a circular track, very regularly with a
 % period of 2 s 
+center_arena = [150, 150];
 
 Fs_position = 30;
 Pos_times = (1:(Fs_position*duration))'; % five minutes of simulated position data, in units of the sampling rate of the acquisition system
                           % that assumes synchronization and rescaling of
                           % video timestamps! (must be column vector)
                           
-X_data = 300 * (0.5 + 0.5 * cos(2 * pi * (1/2) * Pos_times / Fs_position)) + 5 * rand(size(Pos_times));                      
-Y_data = 300 * (0.5 + 0.5 * sin(2 * pi * (1/2) * Pos_times / Fs_position)) + 5 * rand(size(Pos_times));                      
+X_data = 300 * (0.5 + 0.5 * cos(2 * pi * (1/2) * Pos_times / Fs_position)) + 20 * rand(size(Pos_times));                      
+Y_data = 300 * (0.5 + 0.5 * sin(2 * pi * (1/2) * Pos_times / Fs_position)) + 20 * rand(size(Pos_times));                      
  
 % here position is given in units of pixels, you may want to convert to
 % centimeters at this stage 
@@ -72,7 +73,7 @@ Spikes = tsdArray(Spikes);
 
 
 
-%% let's compute "place fields"
+%% let's compute and draw "place fields"
 
 XS = cell(1, 10); % X and Y coordinates of the mouse at the time each spike is emitted
 YS = cell(1, 10); 
@@ -96,4 +97,41 @@ YV = timeDeriv(Y);
 
 Vel = tsd(Range(XV), sqrt((Data(XV)).^ 2 + (Data(YV).^ 2))); 
 
+%% let's simulate place cells 
+Spikes = cell(1,10);
+phi_tsd = tsd(Range(X), atan2(Data(Y) - center_arena(1), Data(X) - center_arena(2))); % extract the angular coordinate from the X/Y position data
 
+t = Range(phi_tsd);
+phi = Data(phi_tsd);
+for i = 1:10
+    pf_centre = rand(1,1) * 2 * pi;
+    pf_size = exprnd(0.5);
+    kappa = 1 / pf_size;
+    peak_firing_rate = exprnd(10) ;
+    firing_prob = peak_firing_rate * (1 / Fs_position) * exp(kappa * cos(phi-pf_centre)) / exp(kappa); % probability of firing a von Mises function of the angular deviation from 
+                                                                       % place
+                                                                       % field
+                                                                       % centre
+    sp = rand(size(phi)) < firing_prob;
+    Spikes{i} = ts(t(sp));
+end
+
+Spikes = tsdArray(Spikes);
+
+%% let's compute and draw "place fields"
+
+XS = cell(1, 10); % X and Y coordinates of the mouse at the time each spike is emitted
+YS = cell(1, 10); 
+for i = 1:10 
+    XS{i} = Align(X, Spikes{i});
+    YS{i} = Align(Y, Spikes{i});
+end
+
+cell_ix = 10;
+clf
+plot(Data(X), Data(Y))
+axis equal tight
+hold on 
+for cell_ix = 1:10
+    plot(Data(XS{cell_ix}), Data(YS{cell_ix}), '.', 'MarkerSize', 15)
+end
