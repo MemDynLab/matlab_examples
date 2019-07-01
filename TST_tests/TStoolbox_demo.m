@@ -331,7 +331,8 @@ for i = 1:10
     figure(8), clf
     plot(Data(phiS), Data(ph{i}), '.');
     axis([-pi, pi, 0, 2*pi]);
-    
+    xlabel('position')
+    ylabel('theta phase')
     
     
     title('type dbcont to continue');
