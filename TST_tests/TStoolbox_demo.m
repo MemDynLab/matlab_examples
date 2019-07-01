@@ -256,3 +256,86 @@ for cell_ix = 1:10
     plot(Data(XS{cell_ix}), Data(YS{cell_ix}), '.', 'MarkerSize', 15)
 end
 
+
+
+%% SIMULATE let's get some "theta" so that we can compute phase precession 
+
+
+Fs = 30000; % 30 kHz (sampling rate for open-ephys) 
+EEG0_times = (1:(Fs*duration))' / Fs; % five seconds of simulated EEG, in units of the sampling rate. Must be a column vector
+
+
+EEG1_times = EEG0_times;
+
+
+EEG1_phase = 2 * pi * 8.1 * EEG1_times + 1.2 * rand(size(EEG1_times)); 
+EEG1_data = cos(EEG1_phase) ;
+
+EEG1 = tsd(EEG1_times, EEG1_data); 
+EEG1_phase = tsd(EEG1_times, EEG1_phase);
+
+%% SIMULATE let's make phase precessing cells 
+
+Spikes = cell(1,10);
+phi_tsd = tsd(Range(X), atan2(Data(Y) - center_arena(1), Data(X) - center_arena(2))); % extract the angular coordinate from the X/Y position data
+
+t = Range(phi_tsd);
+phi = Data(phi_tsd);
+
+theta_phase = Align(EEG1_phase, Range(X));
+theta_phase = Data(theta_phase);
+kappa_theta = 3;
+phase_precession_center = pi;
+phase_precession_alpha = -3;
+for i = 1:10
+    pf_centre = rand(1,1) * 2 * pi;
+    pf_size = exprnd(0.1);
+    kappa = 1 / pf_size;
+    peak_firing_rate = exprnd(30) ;
+    firing_prob = peak_firing_rate * (1 / Fs_position) * ...
+        exp(kappa * cos(phi-pf_centre) + ...
+        kappa_theta * cos(theta_phase - phase_precession_center - phase_precession_alpha*(phi-pf_centre))) / ...
+        exp(kappa + kappa_theta); % probability of firing a von Mises function of the angular deviation from 
+                                                                       % place
+                                                                       % field
+                                                                       % centre
+    sp = rand(size(phi)) < firing_prob;
+    Spikes{i} = ts(t(sp));
+end
+
+Spikes = tsdArray(Spikes);
+
+%% COMPUTE now let's compute phase precession
+
+resample_rate = 30;
+t = Range(EEG1);
+d = Data(EEG1);
+t_resample = t(1:resample_rate:end);
+d_resample = resample(d, 1, resample_rate);
+
+EEG1_res = tsd(t_resample, d_resample);
+
+
+EEG1_theta = filter_7hz(EEG1_res);
+
+[phaseTsd, ph] = firingPhaseHilbert(EEG1_theta, Spikes);
+
+
+%%  COMPUTE phase precession plots
+phi_tsd = tsd(Range(X), atan2(Data(Y) - center_arena(1), Data(X) - center_arena(2))); % extract the angular coordinate from the X/Y position data
+
+
+for i = 1:10
+    
+    phiS = Align(phi_tsd, Spikes{i});
+    figure(8), clf
+    plot(Data(phiS), Data(ph{i}), '.');
+    axis([-pi, pi, 0, 2*pi]);
+    
+    
+    
+    title('type dbcont to continue');
+    keyboard
+end
+
+
