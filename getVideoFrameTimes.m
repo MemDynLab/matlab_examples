@@ -40,6 +40,8 @@ align_deviation = sum(abs(align_mat2));
 ttl_transition_rising_sample_idx = ttl_transition_rising_sample_idx(first_useful_ttl:end);
 led_transition_rising_frame_idx = led_transition_rising_frame_idx(1:length(ttl_transition_rising_sample_idx));
 
+valid_interp_interval = intervalSet(led_transition_rising_frame_idx(1)/Fs_position, ...
+                                    led_transition_rising_frame_idx(end)/Fs_position); %#ok<COLND>
 %% perform linear interpolation 
 
 video_frame_times_sec = (1:length(vecbrilho))' / Fs_position;
